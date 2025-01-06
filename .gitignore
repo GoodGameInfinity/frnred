@@ -10,14 +10,24 @@
 # But not these files...
 !/.gitignore
 
+# Project code
 !*.go
 !go.sum
 !go.mod
+!*.sql
 
+# Information
 !README.md
-!LICENSE
+!LICENSE*
+
+# Developer configs
+!.air.toml
+!sqlc.yaml
 
 # !Makefile
 
 # ...even if they are in subdirectories
 !*/
+
+# Screw you in particular (AIR)
+/tmp/
