@@ -4,6 +4,16 @@
 
 package query
 
+import (
+	"database/sql"
+)
+
+type Key struct {
+	ID     string
+	Hashed string
+	Admin  sql.NullBool
+}
+
 type Url struct {
 	ID  string
 	Url string

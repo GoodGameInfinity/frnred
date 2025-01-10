@@ -7,7 +7,41 @@ package query
 
 import (
 	"context"
+	"database/sql"
 )
+
+const checkKey = `-- name: CheckKey :one
+SELECT 1 hashed FROM keys
+`
+
+func (q *Queries) CheckKey(ctx context.Context) (int32, error) {
+	row := q.db.QueryRowContext(ctx, checkKey)
+	var hashed int32
+	err := row.Scan(&hashed)
+	return hashed, err
+}
+
+const createKey = `-- name: CreateKey :one
+INSERT INTO keys (
+  id, hashed, admin
+) VALUES (
+  $1, $2, $3
+)
+RETURNING id, hashed, admin
+`
+
+type CreateKeyParams struct {
+	ID     string
+	Hashed string
+	Admin  sql.NullBool
+}
+
+func (q *Queries) CreateKey(ctx context.Context, arg CreateKeyParams) (Key, error) {
+	row := q.db.QueryRowContext(ctx, createKey, arg.ID, arg.Hashed, arg.Admin)
+	var i Key
+	err := row.Scan(&i.ID, &i.Hashed, &i.Admin)
+	return i, err
+}
 
 const createUrl = `-- name: CreateUrl :one
 INSERT INTO urls (
@@ -51,6 +85,16 @@ func (q *Queries) CreateVanity(ctx context.Context, arg CreateVanityParams) (Van
 	return i, err
 }
 
+const deleteKey = `-- name: DeleteKey :exec
+DELETE FROM keys
+WHERE id = $1
+`
+
+func (q *Queries) DeleteKey(ctx context.Context, id string) error {
+	_, err := q.db.ExecContext(ctx, deleteKey, id)
+	return err
+}
+
 const deleteUrl = `-- name: DeleteUrl :exec
 DELETE FROM vanities
 WHERE id = $1
@@ -69,6 +113,17 @@ WHERE id = $1
 func (q *Queries) DeleteVanity(ctx context.Context, id string) error {
 	_, err := q.db.ExecContext(ctx, deleteVanity, id)
 	return err
+}
+
+const findKey = `-- name: FindKey :one
+SELECT id, hashed, admin FROM keys WHERE hashed = $1
+`
+
+func (q *Queries) FindKey(ctx context.Context, hashed string) (Key, error) {
+	row := q.db.QueryRowContext(ctx, findKey, hashed)
+	var i Key
+	err := row.Scan(&i.ID, &i.Hashed, &i.Admin)
+	return i, err
 }
 
 const getUrl = `-- name: GetUrl :one
