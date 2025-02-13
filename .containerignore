@@ -1,0 +1,14 @@
+# Ignore everything by default
+*
+!*/
+
+# Allow only .go files
+!*.go
+!/go.mod
+!/go.sum
+
+# And license files
+!LICENSE*
+
+# Allow .dockerignore itself (optional, but recommended for clarity)
+!.dockerignore

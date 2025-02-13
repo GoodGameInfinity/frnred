@@ -24,10 +24,18 @@
 !.air.toml
 !sqlc.yaml
 
+# Scripts
+!/.script/*
+
+!/Containerfile
+!/.containerignore
+
+!/.pre-commit-config.yaml
+
 # !Makefile
 
 # ...even if they are in subdirectories
 !*/
 
-# Screw you in particular (AIR)
+# Just in case (AIR)
 /tmp/
