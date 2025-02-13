@@ -9,15 +9,25 @@ It's designed specifically for the frnsrv.ru website.
 go install go.frnsrv.ru/frnred@latest
 ```
 ### Container image
-Currently there is no official pre-built image.
-
+Pre-built container images are available on Docker hub at `gginfinity/frnred`:
+```bash
+docker pull gginfinity/frnred:latest
+```
+```bash
+podman pull gginfinity/frnred:latest
+```
 ## Building
 ### Go
 ```bash
 go build .
 ```
 ### Container image
-Tested with Podman but should work with Docker too
+Docker Buildkit:
+```bash
+DOCKER_BUILDKIT=1 docker build -t gginfinity/frnred -f Containerfile .
+```
+
+Podman:
 ```bash
 podman image build -t gginfinity/frnred .
 ```
