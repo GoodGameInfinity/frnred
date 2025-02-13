@@ -149,3 +149,35 @@ func (q *Queries) GetVanity(ctx context.Context, id string) (Vanity, error) {
 	err := row.Scan(&i.ID, &i.Url)
 	return i, err
 }
+
+const listKeys = `-- name: ListKeys :many
+SELECT id, admin FROM keys
+`
+
+type ListKeysRow struct {
+	ID    string
+	Admin sql.NullBool
+}
+
+func (q *Queries) ListKeys(ctx context.Context) ([]ListKeysRow, error) {
+	rows, err := q.db.QueryContext(ctx, listKeys)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListKeysRow
+	for rows.Next() {
+		var i ListKeysRow
+		if err := rows.Scan(&i.ID, &i.Admin); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}

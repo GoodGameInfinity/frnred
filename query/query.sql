@@ -50,3 +50,6 @@ SELECT * FROM keys WHERE hashed = $1;
 
 -- name: CheckKey :one
 SELECT 1 hashed FROM keys;
+
+-- name: ListKeys :many
+SELECT id, admin FROM keys;

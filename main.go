@@ -33,6 +33,7 @@ type addUrl struct {
 var ctx = context.Background()
 
 // Not so complicated, right?
+
 func main() {
 	var dbUrl string
 	flag.StringVar(&dbUrl, "db", "file:./frnred.db", "Database connection string (file: or libsql:// for libsql | postgres:// | | sql:// etc.)")
@@ -94,6 +95,11 @@ func main() {
 			MySQL-compatable    | prefix: sql://
 		`)
 	}
+
+	run(db, appAddr, rootURL)
+}
+
+func run(db *sql.DB, appAddr string, rootURL string) {
 	queries := query.New(db)
 
 	// Redirect + API methods
@@ -171,7 +177,6 @@ func main() {
 
 		// Appending the specified URL
 		var nu addUrl
-		log.Print(c.Bind(), c.Bind().JSON(&nu))
 		c.Bind().JSON(&nu)
 		u.Url = nu.Url
 
@@ -233,6 +238,80 @@ func main() {
 			return c.SendStatus(fiber.StatusBadRequest)
 		}
 		return c.Redirect().Status(fiber.StatusPermanentRedirect).To("http://" + string(url))
+	})
+
+	admin := app.Group("/admin")
+	admin.Use(keyauth.New(keyauth.Config{
+		KeyLookup: "cookie:access_token",
+		Validator: func(c fiber.Ctx, key string) (bool, error) {
+			hashedKey := sha256.Sum256([]byte(key))
+			var realKey query.Key
+			var err error
+
+			if realKey, err = queries.FindKey(ctx, string(hashedKey[:])); err != nil {
+				if err == sql.ErrNoRows {
+					return false, keyauth.ErrMissingOrMalformedAPIKey
+				} else {
+					return false, c.SendStatus(fiber.StatusInternalServerError)
+				}
+			}
+			if !realKey.Admin.Valid || !realKey.Admin.Bool {
+				return false, c.SendStatus(fiber.StatusForbidden)
+			}
+			return true, nil
+		},
+	}))
+
+	// :k stands for API key
+	admin.Get("/key/:k", func(c fiber.Ctx) error {
+		key, err := base62.Decode([]byte(c.Params("k")))
+		if err != nil {
+			return c.SendStatus(fiber.StatusBadRequest)
+		}
+		var keyInfo query.Key
+
+		if keyInfo, err = queries.FindKey(ctx, string(key[:])); err != nil {
+			if err == sql.ErrNoRows {
+				return c.SendStatus(fiber.StatusNotFound)
+			} else {
+				return c.SendStatus(fiber.StatusInternalServerError)
+			}
+		}
+
+		return c.JSON(keyInfo)
+	})
+
+	// List all API keys
+	admin.Get("/keys", func(c fiber.Ctx) error {
+		keys, err := queries.ListKeys(ctx)
+		if err != nil {
+			return c.SendStatus(fiber.StatusInternalServerError)
+		}
+		return c.JSON(keys)
+	})
+
+	// Create a new API key
+	type createKeyRequest struct {
+		Admin bool `json:"admin"`
+	}
+
+	admin.Post("/key", func(c fiber.Ctx) error {
+		var req createKeyRequest
+		if err := c.Bind().JSON(&req); err != nil {
+			return c.SendStatus(fiber.StatusBadRequest)
+		}
+
+		// Generate a new random key
+		key := uniuri.NewLen(16)
+		hash := sha256.Sum256([]byte(key))
+		info, err := queries.CreateKey(ctx, query.CreateKeyParams{ID: key, Hashed: string(hash[:]), Admin: sql.NullBool{Bool: true, Valid: true}})
+		if err != nil {
+			return c.SendStatus(fiber.StatusInternalServerError)
+		}
+
+		return c.JSON(fiber.Map{
+			"key": info,
+		})
 	})
 
 	app.Hooks().OnListen(func(listenData fiber.ListenData) error {
