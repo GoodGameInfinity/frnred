@@ -32,9 +32,12 @@ type addUrl struct {
 
 var ctx = context.Background()
 
-// Not so complicated, right?
-
 func main() {
+
+	//
+	// FLAGS
+	//
+
 	var dbUrl string
 	flag.StringVar(&dbUrl, "db", "file:./frnred.db", "Database connection string (file: or libsql:// for libsql | postgres:// | | sql:// etc.)")
 	// Currently unused
@@ -65,39 +68,50 @@ func main() {
 		os.Exit(0)
 	}
 
-	// Database
-	var db *sql.DB
+	//
+	// DATABASE
+	//
 
-	if strings.HasPrefix(dbUrl, "host=") || strings.HasPrefix(dbUrl, "postgres://") || strings.HasPrefix(dbUrl, "postgresql://") { // Postgres
-		var err error
-		db, err = sql.Open("postgres", dbUrl)
-		if err != nil {
-			log.Fatal("failed to connect to Postgres database: ", err.Error())
-		}
-	} else if strings.HasPrefix(dbUrl, "libsql://") || strings.HasPrefix(dbUrl, "file:") { // libSQL
-		var err error
-		db, err = sql.Open("libsql", dbUrl)
-		if err != nil {
-			log.Fatal("failed to connect to libSQL database: ", err.Error())
-		}
-	} else if strings.HasPrefix(dbUrl, "sql://") { // MySQL or other compatable systems
-		var err error
-		db, err = sql.Open("mysql", dbUrl)
-		if err != nil {
-			log.Fatal("failed to connect to MySQL-compatable database: ", err.Error())
-		}
-	} else {
-		log.Fatal("bad database connection string: ", dbUrl, `
+	dbStringToType := map[string]string{
+		"host=":         "postgres",
+		"postgres://":   "postgres",
+		"postgresql://": "postgres",
+		"file:":         "libsql",
+		"libsql://":     "libsql",
+		"sql://":        "mysql",
+	}
 
-		All available connection strings: 
-			Postgres-compatable | prefix: host= OR prefix: postgres:// OR prefix: postgresql://
-			libSQL              | prefix: file: OR prefix: libsql://
-			MySQL-compatable    | prefix: sql://
-		`)
+	// Find the driver based on the prefix
+	var driver string
+	validStr := false
+	for prefix, dbType := range dbStringToType {
+		if strings.HasPrefix(dbUrl, prefix) {
+			driver = dbType
+			validStr = true
+			break
+		}
+	}
+
+	// If no prefix matches, log an error
+	if !validStr {
+		log.Fatal("Bad database connection string: ", dbUrl, `
+		See -help for all supported connection strings.
+	`)
+	}
+
+	db, err := sql.Open(driver, dbUrl)
+	if err != nil {
+		log.Fatal("failed to connect to the database (driver \"", driver, "\"): ", err.Error())
+	}
+
+	if err := query.RunMigrations(db); err != nil {
+		log.Fatal("Migration failed: ", err)
 	}
 
 	run(db, appAddr, rootURL)
 }
+
+// Not so complicated, right?
 
 func run(db *sql.DB, appAddr string, rootURL string) {
 	queries := query.New(db)
